@@ -30,20 +30,16 @@ Large-Eddy Simulations
     may remain numerically stable but without any upwinding or numerical
     diffusion, these results should be carefully interpreted.
 
-  ..
-     The 6th-order numerical diffusion is currently deactivated; restore this
-     item when it is re-enabled.
+  - For higher-order central differencing alone (i.e., without any added
+    upwinding), at least 5% numerical diffusion should be included to stabilize
+    the solution; this was tested with ``Centered_6th``. Note that this does not
+    necessarily kill the numerical noise and is only for numerical stability.
+    These options are identical to WRF's ``diff_6th_opt`` (default: off) and
+    ``diff_6th_factor`` (default: 12%) options.
 
-     - For higher-order central differencing alone (i.e., without any added
-       upwinding), at least 5% numerical diffusion should be included to stabilize
-       the solution; this was tested with ``Centered_6th``. Note that this does not
-       necessarily kill the numerical noise and is only for numerical stability.
-       These options are identical to WRF's ``diff_6th_opt`` (default: off) and
-       ``diff_6th_factor`` (default: 12%) options.
+    .. code-block:: python
 
-       .. code-block:: python
-
-          erf.num_diff_coeff = 0.05
+       erf.num_diff_coeff = 0.05
 
 * Time Integration
 

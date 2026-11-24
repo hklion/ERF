@@ -2537,6 +2537,9 @@ List of Parameters
 +----------------------------------------+----------------------------------------------------------+--------------------+------------------+
 | **erf.Sc_t**                           | Turbulent Schmidt Number                                 | Real               | 1.0              |
 +----------------------------------------+----------------------------------------------------------+--------------------+------------------+
+| **erf.num_diff_coeff**                 | coefficient of the sixth-order numerical diffusion; 0    | Real in [0,1]      | 0.0              |
+|                                        | turns it off                                             |                    |                  |
++----------------------------------------+----------------------------------------------------------+--------------------+------------------+
 | **erf.implicit_before_substep**        | if true, the vertical implicit diffusive solve is done   | Boolean            | true             |
 |                                        | before the acoustic substepping rather than after.       |                    |                  |
 |                                        | Forced to true if any level has no acoustic substepping  |                    |                  |
@@ -2651,12 +2654,6 @@ List of Parameters
 |                                        | Tucker (2003) Poisson distance, or the height above the  | "terrain_height"   |                  |
 |                                        | local surface projected on its normal (no linear solve)  |                    |                  |
 +----------------------------------------+----------------------------------------------------------+--------------------+------------------+
-
-.. The 6th-order numerical diffusion is currently deactivated; restore this row when it is re-enabled.
-
-   | **erf.num_diff_coeff**                 | coefficient of the sixth-order numerical diffusion; 0    | Real in [0,1]      | 0.0              |
-   |                                        | turns it off                                             |                    |                  |
-   +----------------------------------------+----------------------------------------------------------+--------------------+------------------+
 
 Note: in the equations for the evolution of momentum, potential temperature and advected scalars, the
 diffusion coefficients are written as :math:`\mu`, :math:`\rho \alpha_T` and :math:`\rho \alpha_C`, respectively.
@@ -2916,17 +2913,14 @@ List of Parameters
 | **erf.advect_tke**                       | advect the turbulent kinetic energy (per-level); read    | Boolean            | true             |
 |                                          | only when the PBL scheme carries TKE                     |                    |                  |
 +------------------------------------------+----------------------------------------------------------+--------------------+------------------+
+| **erf.diffuse_tke_3D**                   | apply three-dimensional numerical diffusion to the       | Boolean            | true             |
+|                                          | turbulent kinetic energy (per-level); has an effect only |                    |                  |
+|                                          | when numerical diffusion is on (erf.num_diff_coeff > 0)  |                    |                  |
++------------------------------------------+----------------------------------------------------------+--------------------+------------------+
 | **erf.init_tke_from_ustar**              | initialize the turbulent kinetic energy from the         | Boolean            | false            |
 |                                          | friction velocity (per-level); read only when a          |                    |                  |
 |                                          | TKE-carrying closure is active                           |                    |                  |
 +------------------------------------------+----------------------------------------------------------+--------------------+------------------+
-
-.. The 6th-order numerical diffusion is currently deactivated; restore this row when it is re-enabled.
-
-   | **erf.diffuse_tke_3D**                   | apply three-dimensional numerical diffusion to the       | Boolean            | true             |
-   |                                          | turbulent kinetic energy (per-level); has an effect only |                    |                  |
-   |                                          | when numerical diffusion is on (erf.num_diff_coeff > 0)  |                    |                  |
-   +------------------------------------------+----------------------------------------------------------+--------------------+------------------+
 
 Note that the PBL schemes must be used in conjunction with a MOST boundary condition
 at the surface (Zlo) boundary.
@@ -6991,13 +6985,10 @@ Coriolis and Large-Scale ABL Forcing
   ``erf.const_massflux_v``, ``erf.coriolis_3d``, ``erf.latitude``,
   ``erf.rotational_time_period``, ``erf.use_coriolis``, ``erf.variable_coriolis``
 
-Custom and Nudging Forcing
---------------------------
+Custom, Nudging and Numerical Diffusion Forcing
+-----------------------------------------------
 
-.. The 6th-order numerical diffusion is currently deactivated.
-
-   * :ref:`Diffusive Physics <inputs-diffusive-physics>` -- ``erf.num_diff_coeff``
-
+* :ref:`Diffusive Physics <inputs-diffusive-physics>` -- ``erf.num_diff_coeff``
 * :ref:`Forcing Terms <inputs-forcing-terms>` -- ``erf.add_custom_geostrophic_profile``,
   ``erf.add_custom_moisture_forcing``, ``erf.add_custom_rhotheta_forcing``,
   ``erf.add_custom_w_subsidence``, ``erf.add_do_mom_advection``,
