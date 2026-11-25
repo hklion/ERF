@@ -5323,37 +5323,42 @@ void
 ERF::check_for_low_temp (amrex::MultiFab& S)
 {
     // *****************************************************************************
-    // Test for low temp (low is defined as beyond the microphysics range of validity)
+    // Test for low and for non-finite temperatures
     // *****************************************************************************
     //
-    // This value is defined in erf_dtesati in Source/Utils/ERF_MicrophysicsUtils.H
+    // Below t_low, the bottom of the range of the erf_dtesati fit in
+    // Source/Utils/ERF_MicrophysicsUtils.H, the saturation fits clamp their argument, as
+    // WRF's do, so a cold cell (an overshooting convective top, say) only gets a warning.
+    // A non-finite or non-positive temperature still stops the run.
     Real t_low = Real(273.16) - Real(85.);
     //
     // A device-side Abort() is only an assert, so it does nothing at all in an
-    // optimized GPU build.  Record the first failing cell on the device instead, then
-    // report it and abort from the host, so that a GPU run stops wherever a CPU run would.
+    // optimized GPU build.  Record the first bad cell on the device instead, then
+    // report it from the host, so that a GPU run behaves as a CPU run does.
     //
-    amrex::Gpu::DeviceScalar<int> d_found(0);
+    amrex::Gpu::DeviceScalar<int> d_bad(0);
+    amrex::Gpu::DeviceScalar<int> d_cold(0);
 
-    // i, j, k
-    amrex::Gpu::DeviceVector<int>  d_info(3, -1);
+    // i, j, k of the first bad cell, then of the first cold one
+    amrex::Gpu::DeviceVector<int>  d_info(6, -1);
 
-    // temp, rhotheta, rho, qv
-    amrex::Gpu::DeviceVector<Real> d_state(4, 0.);
+    // temp, rhotheta, rho, qv of the first bad cell, then of the first cold one
+    amrex::Gpu::DeviceVector<Real> d_state(8, 0.);
 
     for (MFIter mfi(S); mfi.isValid(); ++mfi)
     {
         Box bx = mfi.tilebox();
         const Array4<Real> &s_arr  = S.array(mfi);
 
-        int*  found = d_found.dataPtr();
+        int*  bad   = d_bad.dataPtr();
+        int*  cold  = d_cold.dataPtr();
         int*  info  = d_info.dataPtr();
         Real* state = d_state.dataPtr();
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
             // Somebody already found a bad cell
-            if (*found) { return; }
+            if (*bad) { return; }
 
             const Real rho      = s_arr(i, j, k, Rho_comp);
             const Real rhotheta = s_arr(i, j, k, RhoTheta_comp);
@@ -5361,41 +5366,47 @@ ERF::check_for_low_temp (amrex::MultiFab& S)
 
             Real temp = getTgivenRandRTh(rho, rhotheta, qv);
 
-            // Written so that a NaN trips it as well.  Every comparison against a NaN is
-            // false, so "temp < t_low" lets exactly the state the microphysics cannot use
-            // walk past the one check that runs on every step of every level.
-            if (!(temp >= t_low)) {
-                // Only one thread wins
-                if (amrex::Gpu::Atomic::CAS(found,0,1) == 0)
-                {
-                    info[0]  = i;
-                    info[1]  = j;
-                    info[2]  = k;
-                    state[0] = temp;
-                    state[1] = rhotheta;
-                    state[2] = rho;
-                    state[3] = qv;
-                }
+            // Written so that a NaN counts as bad: every comparison against a NaN is false
+            int slot = -1;
+            if (!(temp > Real(0)) || !std::isfinite(temp)) {
+                if (amrex::Gpu::Atomic::CAS(bad,0,1) == 0) { slot = 0; }
+            } else if (temp < t_low) {
+                if (amrex::Gpu::Atomic::CAS(cold,0,1) == 0) { slot = 1; }
+            }
+            if (slot >= 0) {
+                info[3*slot  ]  = i;
+                info[3*slot+1]  = j;
+                info[3*slot+2]  = k;
+                state[4*slot  ] = temp;
+                state[4*slot+1] = rhotheta;
+                state[4*slot+2] = rho;
+                state[4*slot+3] = qv;
             }
         });
     }
 
     amrex::Gpu::streamSynchronize();
 
-    if (d_found.dataValue())
+    const int found_bad  = d_bad.dataValue();
+    const int found_cold = d_cold.dataValue();
+    if (found_bad || found_cold)
     {
-        amrex::Vector<int>  h_info(3);
-        amrex::Vector<Real> h_state(4);
+        amrex::Vector<int>  h_info(6);
+        amrex::Vector<Real> h_state(8);
         amrex::Gpu::copy(amrex::Gpu::deviceToHost, d_info.begin(),  d_info.end(),  h_info.begin());
         amrex::Gpu::copy(amrex::Gpu::deviceToHost, d_state.begin(), d_state.end(), h_state.begin());
 
-        std::cout << "Temperature too low or not finite in cell: "
-                  << h_info[0] << " " << h_info[1] << " " << h_info[2] << "\n";
+        const int slot = found_bad ? 0 : 1;
+        std::cout << (found_bad ? "Temperature not finite or not positive in cell: "
+                                : "Warning: temperature below the saturation-fit range in cell: ")
+                  << h_info[3*slot] << " " << h_info[3*slot+1] << " " << h_info[3*slot+2] << "\n";
         std::cout << "Based on temp / rhotheta / rho / qv "
-                  << h_state[0] << " " << h_state[1] << " "
-                  << h_state[2] << " " << h_state[3] << "\n";
+                  << h_state[4*slot] << " " << h_state[4*slot+1] << " "
+                  << h_state[4*slot+2] << " " << h_state[4*slot+3] << "\n";
 
-        amrex::Abort("Temperature too low or not finite in check_for_low_temp");
+        if (found_bad) {
+            amrex::Abort("Temperature not finite or not positive in check_for_low_temp");
+        }
     }
 }
 

@@ -61,8 +61,8 @@ amrex::Real erf_gammafff (amrex::Real x){
 //
 // Flatau et al. (1992), Polynomial Fits to Saturation Vapor Pressure,
 // J. Appl. Meteorol. Coefficients come from Table 4 and the value fit is valid
-// over [-90, 0] C, i.e. down to about 183.16 K. ERF intentionally clamps the
-// above-freezing branch to 0.
+// over [-90, 0] C, i.e. down to about 183.16 K. Colder arguments are clamped to
+// -90 C, and ERF intentionally clamps the above-freezing branch to 0.
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 amrex::Real erf_esati (amrex::Real t) {
     amrex::Real const a0 = amrex::Real(6.11147274);
@@ -75,9 +75,8 @@ amrex::Real erf_esati (amrex::Real t) {
     amrex::Real const a7 = amrex::Real(0.146898966e-11);
     amrex::Real const a8 = amrex::Real(0.252751365e-14);
 
-    amrex::Real dtt = t-amrex::Real(273.16);
-    const amrex::Real tol = amrex::Real(16.0) * std::numeric_limits<amrex::Real>::epsilon();
-    AMREX_ALWAYS_ASSERT(dtt >= -amrex::Real(90.0) - tol);
+    // Below the fit's range the argument is clamped to its bottom, as WRF does
+    amrex::Real dtt = amrex::max(t-amrex::Real(273.16), -amrex::Real(90.0));
 
     amrex::Real esati;
     if (dtt > amrex::Real(0)) {
@@ -173,8 +172,8 @@ amrex::Real erf_esatw (amrex::Real t, bool use_empirical=false)
 
 // Flatau et al. (1992), Polynomial Fits to Saturation Vapor Pressure,
 // J. Appl. Meteorol. The derivative fit is valid over the narrower
-// [-85, 0] C interval, i.e. down to about 188.16 K. ERF intentionally returns
-// 0 above freezing to match erf_esati.
+// [-85, 0] C interval, i.e. down to about 188.16 K. Colder arguments are clamped
+// to -85 C, and ERF intentionally returns 0 above freezing to match erf_esati.
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 amrex::Real erf_dtesati (amrex::Real t) {
     amrex::Real const a0 = amrex::Real(0.503223089);
@@ -187,9 +186,8 @@ amrex::Real erf_dtesati (amrex::Real t) {
     amrex::Real const a7 = amrex::Real(0.390204672e-13);
     amrex::Real const a8 = amrex::Real(0.497275778e-16);
 
-    amrex::Real dtt = t-amrex::Real(273.16);
-    const amrex::Real tol = amrex::Real(16.0) * std::numeric_limits<amrex::Real>::epsilon();
-    AMREX_ALWAYS_ASSERT(dtt >= -amrex::Real(85.0) - tol);
+    // Below the fit's range the argument is clamped to its bottom, as WRF does
+    amrex::Real dtt = amrex::max(t-amrex::Real(273.16), -amrex::Real(85.0));
     amrex::Real dtesati;
     if (dtt > amrex::Real(0)) {
         dtesati = amrex::Real(0);
